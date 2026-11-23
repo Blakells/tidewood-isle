@@ -4,7 +4,9 @@ A cozy 3D island game for the browser: comb the beach, build a home block by blo
 
 ## Play
 
-Either double-click `index.html`, or run the small server and open http://localhost:8123:
+Play online at https://blakells.dev/tidewood-isle/ (served by GitHub Pages from the `main` branch; every push updates it within a minute or so).
+
+To play from your own computer, either double-click `index.html`, or run the small server and open http://localhost:8123:
 
 ```bash
 node serve.js
