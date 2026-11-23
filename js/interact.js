@@ -317,6 +317,8 @@
     return true;
   }
 
+  G.tryPlace = tryPlace;
+
   // ---------------- breaking ----------------
   function dropsFor(def, meta) {
     if (def.crop) {

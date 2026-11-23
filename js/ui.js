@@ -76,19 +76,22 @@
     for (let i = 0; i < 9; i++) {
       const s = el('div', 'slot');
       s.dataset.i = i;
-      s.addEventListener('mousedown', (e) => { e.stopPropagation(); G.inv.sel = i; G.invDirty = true; G.emit('sfx', 'tick'); });
+      s.addEventListener('pointerdown', (e) => { e.stopPropagation(); G.inv.sel = i; G.invDirty = true; G.emit('sfx', 'tick'); });
       hb.appendChild(s);
     }
+    $('tasks').onclick = () => { if (!ui.blocking()) { ui.journalTab = 'tasks'; ui.toggle('journal'); } };      // (only tappable in touch mode)
     $('btn-bag').onclick = () => ui.toggle('backpack');
     $('btn-journal').onclick = () => ui.toggle('journal');
     $('btn-outfit').onclick = () => { if (ui.panel === 'wardrobe') ui.close(); else ui.openWardrobe(); };
     $('btn-help').onclick = () => ui.toggle('help');
     $('btn-sound').onclick = () => { if (G.audio) { G.audio.toggleMute(); $('btn-sound').textContent = G.audio.muted ? '🔇' : '🔊'; } };
-    $('modal-back').addEventListener('mousedown', (e) => { if (e.target === $('modal-back')) ui.close(); });
-    window.addEventListener('mousemove', (e) => {
+    $('modal-back').addEventListener('pointerdown', (e) => { if (e.target === $('modal-back')) ui.close(); });
+    const followCursor = (e) => {
       const c = $('cursor-stack');
       c.style.left = e.clientX + 'px'; c.style.top = e.clientY + 'px';
-    });
+    };
+    window.addEventListener('pointermove', followCursor);
+    window.addEventListener('pointerdown', followCursor, true);
     G.on('keydown', (code, e) => {
       if (ui.titleOpen) return;
       if (code === 'Escape') { if (ui.panel) ui.close(); return; }
@@ -123,6 +126,7 @@
     const now = performance.now();
     if (msg === lastToast && now - lastToastT < 1800) return;
     lastToast = msg; lastToastT = now;
+    msg = G.tx ? G.tx(msg) : msg;
     const t = el('div', 'toast ' + (cls || ''), msg);
     const box = $('toasts');
     box.appendChild(t);
@@ -191,7 +195,7 @@
       const tip = def.tool && tool !== def.tool ? ' <i>(faster with the ' + { axe: 'axe', pick: 'pick', shovel: 'shovel' }[def.tool] + ')</i>' : '';
       parts.push('<kbd>Hold click</kbd> to ' + verb + ' ' + esc(def.label) + tip);
     }
-    if (held && held.kind === 'block' && def.use) parts.push('<kbd>Shift</kbd> + <kbd>Right-click</kbd> place against it');
+    if (held && held.kind === 'block' && def.use && !(G.touch && G.touch.on)) parts.push('<kbd>Shift</kbd> + <kbd>Right-click</kbd> place against it');
     if (held && held.kind === 'block' && !(def.use)) parts.push('<kbd>Right-click</kbd> place' + (G.BLOCKS[held.block].rot && !G.BLOCKS[held.block].wall ? ' · <kbd>R</kbd> rotate' : ''));
     if (held && held.kind === 'seed') parts.push('<kbd>Right-click</kbd> soil to plant');
     return parts.join(' &nbsp;·&nbsp; ');
@@ -207,7 +211,7 @@
     hintT -= dt;
     if (hintT <= 0) {
       hintT = 0.12;
-      const h = ui.blocking() ? '' : hintText();
+      const h = ui.blocking() ? '' : (G.tx ? G.tx(hintText()) : hintText());
       const he = $('hint');
       if (he._last !== h) { he._last = h; he.innerHTML = h; he.classList.toggle('show', !!h); }
       $('clock-time').textContent = fmtTime(G.time);
@@ -241,7 +245,7 @@
     }
     if (ui.panel === 'wardrobe' && camBefore) { G.cam.yaw = camBefore.yaw; G.cam.pitch = camBefore.pitch; G.cam.wantDist = camBefore.dist; camBefore = ui.camBefore = null; G.camera.clearViewOffset(); G.camera.updateProjectionMatrix(); }
     ui.panel = null; ui.chestKey = null;
-    $('modal-back').classList.remove('show'); $('modal-back').classList.remove('aside');
+    $('modal-back').classList.remove('show'); $('modal-back').classList.remove('aside'); $('modal-back').classList.remove('typing');
     $('modal').innerHTML = '';
     G.emit('sfx', 'close');
     if (G.requestSave) G.requestSave();
@@ -277,7 +281,7 @@
   };
 
   function header(title, sub) {
-    return '<div class="phead"><h2>' + title + '</h2>' + (sub ? '<span class="sub">' + sub + '</span>' : '') + '<button class="x" data-close="1">✕</button></div>';
+    return '<div class="phead"><h2>' + title + '</h2>' + (sub ? '<span class="sub">' + (G.tx ? G.tx(sub) : sub) + '</span>' : '') + '<button class="x" data-close="1">✕</button></div>';
   }
   function wireClose(m) { m.querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => ui.close())); }
 
@@ -292,7 +296,7 @@
     for (let i = from; i < to; i++) {
       const s = el('div', 'slot' + (arr === G.inv.slots && i === G.inv.sel ? ' sel' : ''), slotHTML(arr[i]));
       if (arr[i]) s.title = G.itemLabel(arr[i].id);
-      s.addEventListener('mousedown', (e) => { e.preventDefault(); slotClick(arr, i, e, otherArr); });
+      s.addEventListener('pointerdown', (e) => { e.preventDefault(); slotTap(arr, i, e, otherArr); });
       s.addEventListener('contextmenu', (e) => e.preventDefault());
       g.appendChild(s);
     }
@@ -303,6 +307,20 @@
     for (let i = from; i < to && stack.n > 0; i++) if (arr[i] && arr[i].id === stack.id && arr[i].n < max) { const a = Math.min(stack.n, max - arr[i].n); arr[i].n += a; stack.n -= a; }
     for (let i = from; i < to && stack.n > 0; i++) if (!arr[i]) { const a = Math.min(stack.n, max); arr[i] = { id: stack.id, n: a }; stack.n -= a; }
     return stack.n;
+  }
+  // Touch has no Shift key: tapping the same slot twice quickly sends the stack across instead.
+  let lastTap = null;
+  function slotTap(arr, i, e, otherArr) {
+    if (e.pointerType === 'touch') {
+      const now = performance.now();
+      if (lastTap && lastTap.arr === arr && lastTap.i === i && now - lastTap.t < 400 && ui.cursor && !arr[i]) {
+        arr[i] = ui.cursor; ui.cursor = null; lastTap = null;
+        slotClick(arr, i, { shiftKey: true, button: 0 }, otherArr);
+        return;
+      }
+      lastTap = { arr, i, t: now };
+    }
+    slotClick(arr, i, e, otherArr);
   }
   function slotClick(arr, i, e, otherArr) {
     const s = arr[i], c = ui.cursor;
@@ -579,6 +597,24 @@
       <div class="hrow"><span id="fps-line" style="margin-left:0">Running at ${Math.round(G.fps)} frames per second.</span><button class="make" id="btn-simple">${G.simple ? 'Full graphics' : 'Simpler graphics'}</button></div>
       <div class="hrow"><button class="make" id="btn-save">Save now</button><button class="make danger" id="btn-reset">Start a new island…</button></div>
     </div>`;
+    if (G.touch && G.touch.on) {
+      // the same panel for fingers: touch gestures instead of keys, plus buttons for the keyboard-only extras
+      const rows = m.querySelectorAll('.help > .hrow');
+      for (let i = 0; i < 8 && i < rows.length; i++) rows[i].remove();
+      const box = m.querySelector('.help');
+      box.insertAdjacentHTML('afterbegin', `
+        <div class="hrow"><kbd>Left thumb</kbd><span>Walk — a stick appears wherever your thumb lands. Push it all the way to run.</span></div>
+        <div class="hrow"><kbd>Tap</kbd><span>Open doors, sit, light fires, talk, pick up shells, cast the rod — or place the block you are holding</span></div>
+        <div class="hrow"><kbd>Hold</kbd><span>Dig, chop, mine and gather. Keep your finger down until it breaks.</span></div>
+        <div class="hrow"><kbd>Drag</kbd><span>Look around · <kbd>Pinch</kbd> zoom in and out</span></div>
+        <div class="hrow"><kbd>⤒</kbd><span>Jump / swim up · <kbd>✋</kbd> use the nearest thing · <kbd>👋</kbd> wave · <kbd>↻</kbd> rotate furniture · <kbd>🍴</kbd> eat</span></div>
+        <div class="hrow"><kbd>🎒</kbd><span>Backpack &amp; crafting. Tap an item, then tap a slot to move it; tap an item twice to send it across.</span></div>
+        <div class="hrow tools"><button class="make" id="tb-roofs">${G.cam.showRoofs ? 'Lift roofs indoors' : 'Keep roofs visible'}</button><button class="make" id="tb-map">${G.mapVisible === false ? 'Show the map' : 'Hide the map'}</button><button class="make" id="tb-photo">Photo mode</button></div>`);
+      const ul = m.querySelector('.help ul');
+      ul.innerHTML = G.tx(ul.innerHTML).replace(/\bclick/g, 'tap').replace(/\bClick/g, 'Tap');
+      const key = (code) => () => { ui.close(); G.emit('keydown', code); };
+      $('tb-roofs').onclick = key('KeyV'); $('tb-map').onclick = key('KeyN'); $('tb-photo').onclick = key('KeyP');
+    }
     $('btn-save').onclick = () => { if (G.saveGame) { G.saveGame(); ui.toast('Island saved 💾'); } };
     $('btn-simple').onclick = () => { G.setSimple(!G.simple); ui.toast(G.simple ? 'Simpler graphics on: no shadows or soft focus' : 'Full graphics back on'); ui.render(); };
     $('btn-reset').onclick = () => {
@@ -598,7 +634,8 @@
     m.className = 'panel-dialog';
     $('modal-back').classList.add('show');
     G.input.keys = {};
-    m.innerHTML = '<div class="dialog"><h2>' + opts.title + '</h2><div class="dbody">' + (opts.html || '') + '</div>' + (opts.input ? '<input id="dlg-input" maxlength="16" value="' + esc(opts.input.value || '') + '" placeholder="' + esc(opts.input.placeholder || '') + '">' : '') + '<div class="dbtns"></div></div>';
+    $('modal-back').classList.toggle('typing', !!opts.input);
+    m.innerHTML = '<div class="dialog"><h2>' + opts.title + '</h2><div class="dbody">' + (G.tx ? G.tx(opts.html || '') : (opts.html || '')) + '</div>' + (opts.input ? '<input id="dlg-input" maxlength="16" value="' + esc(opts.input.value || '') + '" placeholder="' + esc(opts.input.placeholder || '') + '">' : '') + '<div class="dbtns"></div></div>';
     const btns = m.querySelector('.dbtns');
     for (const b of opts.buttons || [{ label: 'Okay', primary: true }]) {
       const be = el('button', 'make' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : ''), b.label);
@@ -610,7 +647,7 @@
       };
       btns.appendChild(be);
     }
-    if (opts.input) { const i = $('dlg-input'); setTimeout(() => { i.focus(); i.select(); }, 30); i.addEventListener('keydown', (e) => { if (e.key === 'Enter') btns.querySelector('.primary, .make').click(); e.stopPropagation(); }); }
+    if (opts.input) { const i = $('dlg-input'); setTimeout(() => { i.focus(); i.select(); }, 30); i.addEventListener('blur', () => window.scrollTo(0, 0)); i.addEventListener('keydown', (e) => { if (e.key === 'Enter') btns.querySelector('.primary, .make').click(); e.stopPropagation(); }); }
   };
 
   // ---------------- fade (sleeping) ----------------
@@ -632,7 +669,7 @@
     let html = active.length ? '<h4>Island to-do</h4>' : '';
     for (const q of active) {
       const prog = q.goal > 1 ? ' <i>' + Math.min(q.goal, G.quests.progress[q.id] || 0) + '/' + q.goal + '</i>' : '';
-      html += '<div class="task"><span>⬜</span><div><b>' + esc(q.title) + prog + '</b><small>' + esc(q.desc) + '</small></div></div>';
+      html += '<div class="task"><span>⬜</span><div><b>' + esc(q.title) + prog + '</b><small>' + esc(G.tx ? G.tx(q.desc) : q.desc) + '</small></div></div>';
     }
     box.innerHTML = html;
   };
@@ -644,6 +681,22 @@
   };
 
   // ---------------- title screen ----------------
+  const TOUCH_LINE = 'Left thumb to walk · tap to use, place and pick up · hold to dig and chop';
+  // On a phone the game only goes full screen when launched from the Home Screen, so say so up front.
+  function homeScreenTip() {
+    const a = $('title-a2hs');
+    if (!a) return;
+    const standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    const show = !!(G.touch && G.touch.on) && !standalone;
+    a.style.display = show ? '' : 'none';
+    if (show) a.innerHTML = '📲 For full screen, add this page to your Home Screen first<br>(Share → Add to Home Screen). That copy keeps its own island.';
+  }
+  G.on('touchmode', () => {
+    homeScreenTip();
+    const k = $('title-keys'); if (k) k.textContent = TOUCH_LINE;
+    if (ui.renderTasks) ui.renderTasks();
+    if (ui.panel === 'help') ui.render();
+  });
   ui.showTitle = function () {
     ui.titleOpen = true;
     const t = $('title');
@@ -654,9 +707,11 @@
       <p>A cozy little island to build, fish, collect and befriend.</p>
       <button class="make primary big" id="btn-play">${hasSave ? 'Continue your island' : 'Wash ashore'}</button>
       ${hasSave ? '<button class="make" id="btn-new">Start a new island</button>' : ''}
-      <small>WASD to walk · click to gather · right-click to place · <b>H</b> for help</small>
+      <small id="title-keys">${G.touch && G.touch.on ? TOUCH_LINE : 'WASD to walk · click to gather · right-click to place · <b>H</b> for help'}</small>
+      <small id="title-a2hs" style="display:none"></small>
     </div>`;
     t.classList.add('show');
+    homeScreenTip();
     ui.refreshNames();
     $('btn-play').onclick = () => {
       ui.titleOpen = false; t.classList.remove('show');

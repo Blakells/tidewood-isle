@@ -39,6 +39,7 @@
     }
     G.cam.target.set(G.player.pos.x, G.player.pos.y + 1, G.player.pos.z);
     if (G.initGame) G.initGame(save);
+    if (G.initTouch) G.initTouch();
     G.started = true;
     resize();
     requestAnimationFrame(frame);
@@ -72,6 +73,7 @@
     G.updateCamera(dt);
     G.updateEnv(dt, G.player.pos);
     G.updateDirtyChunks(8);
+    if (G.updateTouch) G.updateTouch(dt);
     if (G.updateTargeting) G.updateTargeting(dt);
   };
 

@@ -34,6 +34,20 @@ Three.js (r128, MIT licence) is bundled in `js/vendor/`, so the game needs nothi
 | J / O / N / P / H / M | Journal, outfit, map, photo mode, help, sound |
 | Middle-click | Pick the block you are pointing at from your backpack |
 
+## On a phone or tablet
+
+Open the link in Safari or Chrome. Touch controls switch on by themselves:
+
+| Gesture | Action |
+| --- | --- |
+| Left thumb | Walk — a stick appears wherever the thumb lands; push it all the way to run |
+| Tap | Open doors, sit, light fires, talk, pick up shells, cast the rod, or place the block being held |
+| Hold | Dig, chop, mine and gather (also picks the rowboat up) |
+| Drag / pinch | Look around / zoom |
+| ⤒ ✋ 👋 ↻ 🍴 | Jump, use the nearest thing, wave (🌠 wish), rotate furniture, eat |
+
+For full screen on an iPhone, add the page to the Home Screen first (Share → Add to Home Screen) and launch it from there. The Home Screen copy keeps its own save, separate from Safari's. Roofs, the map and photo mode have buttons in the ❔ panel. Splitting a stack in the backpack and placing a block directly against a door or chest are keyboard-and-mouse only.
+
 ## What there is to do
 
 - **Make it yours**: name yourself and your island, then pick hair, headwear, outfit and colours (press O any time).
@@ -60,5 +74,7 @@ Three.js (r128, MIT licence) is bundled in `js/vendor/`, so the game needs nothi
 
 - `index.html`, `style.css` — page and HUD styling
 - `js/` — the game, split by job (`world.js` island generator, `mesher.js` chunk meshes, `blocks.js` / `items.js` data, `interact.js` building, `fishing.js`, `pets.js`, `villagers.js`, `ui.js`, `save.js`, `audio.js`, …)
+- `js/touch.js` — touch controls (inactive until a finger touches the screen)
+- `manifest.webmanifest`, `icons/` — Home Screen name and icon
 - `serve.js` — tiny static server for playing locally
 - `play.html` — the same game as a page fragment for publishing as a Claude artifact (it loads Three.js from a CDN instead)

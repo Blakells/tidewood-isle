@@ -265,6 +265,7 @@
       if (input.keys.KeyS || input.keys.ArrowDown) mz += 1;
       if (input.keys.KeyA || input.keys.ArrowLeft) mx -= 1;
       if (input.keys.KeyD || input.keys.ArrowRight) mx += 1;
+      if (input.joy && input.joy.active) { mx += input.joy.x; mz += input.joy.y; }      // touch: the walking stick
     }
     if (G.autoMove) { mx = G.autoMove.x; mz = G.autoMove.z; }
     const moving = mx !== 0 || mz !== 0;
@@ -289,7 +290,7 @@
     const wasSwimming = P.swimming;
     P.swimming = deep || (wasSwimming && inWater && P.pos.y < G.WATER_Y - 0.55 && !P.onGround);
 
-    const run = input.keys.ShiftLeft || input.keys.ShiftRight;
+    const run = input.keys.ShiftLeft || input.keys.ShiftRight || (input.joy && input.joy.active && input.joy.mag > 0.92);
     let speed = P.swimming ? SWIM : inWater ? WALK * 0.75 : run ? RUN : WALK;
     if (P.pep > 0) { speed *= 1.25; P.pep -= dt; }
     const accel = P.onGround || P.swimming ? 14 : 6;
